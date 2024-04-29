@@ -3,6 +3,7 @@
 from os import getenv
 from dotenv import load_dotenv
 import pymongo
+import re
 
 load_dotenv()
 
@@ -10,26 +11,21 @@ DB = getenv('DB_PROD')
 
 
 client = pymongo.MongoClient(DB)
-db = client[getenv('DATABASE')]
+db = client[getenv('TEST_DATABASE')]
 collection = db["players"]
-cursor = collection.find()
 
-transfer1 = cursor[2]['transfers']['transfer'][0]
-collection.update_one({"transfers.transfer": transfer1}, {'$set': {'transfers.transfer.$.type': transfer1['type'].replace('&euro; ', '')}})
-print('Updated Successfully')
-    
-        # if '&euro;' in transfer['type']:
-        #     print(player)
-        #     print(transfer['type'].replace('&euro; ', ''))
+pattern = re.compile(r'&euro; ')
+res = collection.find({'transfers.transfer.type': {'$regex': pattern}})
 
-# for doc in cursor:
-#     try:
-#         if doc['transfers'] is not None:
-#             player = doc['common_name']
-#             transfers = doc['transfers']['transfer']
-#             for transfer in transfers:
-#                 if '&euro;' in transfer['type']:
-#                     print(player)
-#                     print(transfer['type'].replace('&euro; ', ''))
-#     except Exception:
-#         print(Exception)
+for doc in res:
+    try:
+        if doc['transfers'] is not None:
+            transfers = doc['transfers']['transfer']
+            for transfer in transfers:
+                if '&euro;' in transfer['type']:
+                    collection.update_one({"transfers.transfer": transfer}, {'$set': {
+                                          'transfers.transfer.$.type': transfer['type'].replace('&euro; ', '')}})
+    except Exception as e:
+        print(e)
+
+print("Misson Accomplished!!!")
